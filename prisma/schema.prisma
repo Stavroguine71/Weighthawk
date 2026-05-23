@@ -1,0 +1,65 @@
+// Prisma schema for the nutrition app
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Weighing {
+  id        String   @id @default(cuid())
+  // The date the weighing applies to (date-only semantics; stored as midnight UTC)
+  date      DateTime
+  weightKg  Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+model FoodLog {
+  id          String   @id @default(cuid())
+  // Date the food was consumed (date-only)
+  date        DateTime
+  // Free-text description user typed (or USDA description)
+  description String
+  // USDA fdcId if the user picked from search; null if manual
+  fdcId       Int?
+  servingG    Float?   // grams consumed
+  servings    Float    @default(1) // multiplier
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  mealType    String?  // breakfast | lunch | dinner | snack
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}
+
+model Favorite {
+  id          String   @id @default(cuid())
+  name        String
+  fdcId       Int?
+  servingG    Float?
+  servings    Float    @default(1)
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Settings {
+  id              Int   @id @default(1)
+  dailyCalorieGoal Int  @default(2000)
+  proteinGoalG     Int  @default(150)
+  carbsGoalG       Int  @default(220)
+  fatGoalG         Int  @default(70)
+  heightCm         Float?
+  startWeightKg    Float?
+  goalWeightKg     Float?
+}
