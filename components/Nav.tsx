@@ -8,6 +8,7 @@ const items = [
   { href: '/weighings', label: 'Weight' },
   { href: '/food', label: 'Food log' },
   { href: '/favorites', label: 'Favorites' },
+  { href: '/coach', label: 'Coach' },
   { href: '/settings', label: 'Settings' },
 ];
 
@@ -26,7 +27,7 @@ export function Nav() {
     <header className="border-b border-white/5 bg-panel/50 backdrop-blur">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-semibold tracking-tight">
-          <span className="text-accent">●</span> Nutrition
+          <span className="text-accent">*</span> Nutrition
         </Link>
         <nav className="flex items-center gap-1">
           {items.map((it) => {

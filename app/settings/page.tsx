@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ACTIVITY_LABEL, computeIntel, type ActivityLevel, type Sex } from '@/lib/nutrition-intel';
+import { TargetReview } from '@/components/TargetReview';
 
 type Settings = {
   dailyCalorieGoal: number;
@@ -29,15 +30,17 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  function reload() {
+    fetch('/api/settings').then((r) => r.json()).then(setS);
+  }
+
   useEffect(() => {
     Promise.all([
       fetch('/api/settings').then((r) => r.json()),
       fetch('/api/weighings?days=180').then((r) => r.json()).catch(() => []),
     ]).then(([settings, ws]) => {
       setS(settings);
-      if (Array.isArray(ws) && ws.length) {
-        setLatestWeight(ws[ws.length - 1].weightKg);
-      }
+      if (Array.isArray(ws) && ws.length) setLatestWeight(ws[ws.length - 1].weightKg);
     });
   }, []);
 
@@ -58,7 +61,6 @@ export default function SettingsPage() {
     });
   }, [s, latestWeight]);
 
-  // Auto-suggest weekly rate from goal weight + target date.
   function suggestWeeklyRate() {
     if (!s) return;
     if (!s.goalWeightKg || !s.targetDate) return;
@@ -69,7 +71,7 @@ export default function SettingsPage() {
     today.setUTCHours(0, 0, 0, 0);
     const weeks = (target.getTime() - today.getTime()) / (7 * 86400000);
     if (weeks <= 0) return;
-    const delta = s.goalWeightKg - current; // negative = need to lose
+    const delta = s.goalWeightKg - current;
     const rate = +(delta / weeks).toFixed(2);
     setS({ ...s, weeklyRateKg: rate });
   }
@@ -120,12 +122,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="label">Target date</label>
-            <input
-              className="input"
-              type="date"
-              value={toDateInput(s.targetDate)}
-              onChange={(e) => update('targetDate', e.target.value || null)}
-            />
+            <input className="input" type="date" value={toDateInput(s.targetDate)} onChange={(e) => update('targetDate', e.target.value || null)} />
           </div>
           <div>
             <label className="label">Weekly rate (kg/wk)</label>
@@ -253,6 +250,8 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      <TargetReview onApplied={reload} />
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save settings'}</button>

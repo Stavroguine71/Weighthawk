@@ -7,6 +7,8 @@ import { FoodList } from '@/components/FoodList';
 import { MacroBar } from '@/components/MacroBar';
 import { WeightChart } from '@/components/WeightChart';
 import { InsightsPanel } from '@/components/InsightsPanel';
+import { AIQuickEntry } from '@/components/AIQuickEntry';
+import { WeeklyNarrative } from '@/components/WeeklyNarrative';
 import { todayISO } from '@/lib/date';
 
 type Settings = {
@@ -208,6 +210,10 @@ export default function HomePage() {
           settings={settings}
         />
       )}
+
+      <WeeklyNarrative />
+
+      <AIQuickEntry onAdded={load} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FoodSearch onAdd={addFood} />
