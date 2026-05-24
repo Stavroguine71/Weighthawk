@@ -58,6 +58,22 @@ export default function SettingsPage() {
     });
   }, [s, latestWeight]);
 
+  // Auto-suggest weekly rate from goal weight + target date.
+  function suggestWeeklyRate() {
+    if (!s) return;
+    if (!s.goalWeightKg || !s.targetDate) return;
+    const current = latestWeight ?? s.startWeightKg;
+    if (!current) return;
+    const target = new Date(s.targetDate);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const weeks = (target.getTime() - today.getTime()) / (7 * 86400000);
+    if (weeks <= 0) return;
+    const delta = s.goalWeightKg - current; // negative = need to lose
+    const rate = +(delta / weeks).toFixed(2);
+    setS({ ...s, weeklyRateKg: rate });
+  }
+
   async function save() {
     if (!s) return;
     setBusy(true);
@@ -86,33 +102,64 @@ export default function SettingsPage() {
   if (!s) return <p className="text-sm text-muted">Loading...</p>;
 
   const currentYear = new Date().getUTCFullYear();
+  const current = latestWeight ?? s.startWeightKg;
+  const targetWeeks =
+    s.targetDate && current
+      ? Math.max(0, (new Date(s.targetDate).getTime() - Date.now()) / (7 * 86400000))
+      : null;
 
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="card">
-        <h2 className="font-medium">Daily goals</h2>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <h2 className="font-medium">Targets</h2>
+        <p className="text-xs text-muted mt-1">What you're aiming for. Drives the dashboard ETA and trend alerts.</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
           <div>
-            <label className="label">Calories (kcal)</label>
-            <input className="input" type="number" value={s.dailyCalorieGoal} onChange={(e) => update('dailyCalorieGoal', Number(e.target.value) || 0)} />
+            <label className="label">Goal weight (kg)</label>
+            <input className="input" type="number" step="0.1" value={s.goalWeightKg ?? ''} onChange={(e) => update('goalWeightKg', e.target.value === '' ? null : Number(e.target.value))} />
           </div>
           <div>
-            <label className="label">Protein (g)</label>
-            <input className="input" type="number" value={s.proteinGoalG} onChange={(e) => update('proteinGoalG', Number(e.target.value) || 0)} />
+            <label className="label">Target date</label>
+            <input
+              className="input"
+              type="date"
+              value={toDateInput(s.targetDate)}
+              onChange={(e) => update('targetDate', e.target.value || null)}
+            />
           </div>
           <div>
-            <label className="label">Carbs (g)</label>
-            <input className="input" type="number" value={s.carbsGoalG} onChange={(e) => update('carbsGoalG', Number(e.target.value) || 0)} />
+            <label className="label">Weekly rate (kg/wk)</label>
+            <input
+              className="input"
+              type="number"
+              step="0.1"
+              value={s.weeklyRateKg ?? ''}
+              onChange={(e) => update('weeklyRateKg', e.target.value === '' ? null : Number(e.target.value))}
+              placeholder="-0.5 lose / +0.25 gain"
+            />
           </div>
-          <div>
-            <label className="label">Fat (g)</label>
-            <input className="input" type="number" value={s.fatGoalG} onChange={(e) => update('fatGoalG', Number(e.target.value) || 0)} />
-          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+          <button
+            type="button"
+            className="btn-ghost text-xs py-1"
+            onClick={suggestWeeklyRate}
+            disabled={!s.goalWeightKg || !s.targetDate || !current}
+          >
+            Suggest rate from goal + date
+          </button>
+          {current && s.goalWeightKg && targetWeeks !== null && targetWeeks > 0 && (
+            <span>
+              {(s.goalWeightKg - current).toFixed(1)} kg over {targetWeeks.toFixed(1)} weeks
+              = {((s.goalWeightKg - current) / targetWeeks).toFixed(2)} kg/wk
+            </span>
+          )}
         </div>
       </div>
 
       <div className="card">
-        <h2 className="font-medium">Body</h2>
+        <h2 className="font-medium">Body and activity</h2>
+        <p className="text-xs text-muted mt-1">Used to compute BMR / TDEE and suggest a calorie goal.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
           <div>
             <label className="label">Height (cm)</label>
@@ -146,26 +193,7 @@ export default function SettingsPage() {
             <label className="label">Start weight (kg)</label>
             <input className="input" type="number" step="0.1" value={s.startWeightKg ?? ''} onChange={(e) => update('startWeightKg', e.target.value === '' ? null : Number(e.target.value))} />
           </div>
-          <div>
-            <label className="label">Goal weight (kg)</label>
-            <input className="input" type="number" step="0.1" value={s.goalWeightKg ?? ''} onChange={(e) => update('goalWeightKg', e.target.value === '' ? null : Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label">Target date</label>
-            <input
-              className="input"
-              type="date"
-              value={toDateInput(s.targetDate)}
-              onChange={(e) => update('targetDate', e.target.value || null)}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2 className="font-medium">Activity and rate</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-          <div>
+          <div className="md:col-span-2">
             <label className="label">Activity level</label>
             <select
               className="input"
@@ -178,20 +206,30 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="font-medium">Daily goals</h2>
+        <p className="text-xs text-muted mt-1">Edit directly or use the auto-suggest below.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           <div>
-            <label className="label">Weekly rate (kg / week)</label>
-            <input
-              className="input"
-              type="number"
-              step="0.1"
-              value={s.weeklyRateKg ?? ''}
-              onChange={(e) => update('weeklyRateKg', e.target.value === '' ? null : Number(e.target.value))}
-              placeholder="e.g. -0.5 to lose, +0.25 to gain"
-            />
-            <p className="text-xs text-muted mt-1">Negative to lose, positive to gain. 0.5 kg/week is roughly a 550 kcal/day deficit.</p>
+            <label className="label">Calories (kcal)</label>
+            <input className="input" type="number" value={s.dailyCalorieGoal} onChange={(e) => update('dailyCalorieGoal', Number(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Protein (g)</label>
+            <input className="input" type="number" value={s.proteinGoalG} onChange={(e) => update('proteinGoalG', Number(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Carbs (g)</label>
+            <input className="input" type="number" value={s.carbsGoalG} onChange={(e) => update('carbsGoalG', Number(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Fat (g)</label>
+            <input className="input" type="number" value={s.fatGoalG} onChange={(e) => update('fatGoalG', Number(e.target.value) || 0)} />
           </div>
         </div>
-
         <div className="mt-4 rounded-lg bg-panel2 ring-1 ring-white/10 p-3">
           {intel?.ok ? (
             <>
