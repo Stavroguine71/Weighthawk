@@ -6,7 +6,9 @@ import { FoodSearch, PendingFood } from '@/components/FoodSearch';
 type Favorite = {
   id: string;
   name: string;
+  source: string | null;
   fdcId: number | null;
+  offCode: string | null;
   servingG: number | null;
   servings: number;
   calories: number;
@@ -33,7 +35,9 @@ export default function FavoritesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: food.description,
+        source: food.source,
         fdcId: food.fdcId,
+        offCode: food.offCode,
         servingG: food.servingG,
         servings: food.servings,
         calories: food.calories,
@@ -59,7 +63,7 @@ export default function FavoritesPage() {
         </p>
       </div>
 
-      <FoodSearch onAdd={add} placeholder="Search a food to save as favorite…" />
+      <FoodSearch onAdd={add} placeholder="Search a food to save as favorite..." />
 
       <div className="card">
         <h3 className="font-medium mb-2">Your favorites</h3>
@@ -72,11 +76,11 @@ export default function FavoritesPage() {
                 <div className="min-w-0">
                   <div className="text-sm truncate">{f.name}</div>
                   <div className="text-xs text-muted">
-                    {Math.round(f.calories)} kcal · P {f.proteinG.toFixed(0)} · C {f.carbsG.toFixed(0)} · F {f.fatG.toFixed(0)}
-                    {f.servingG ? ` · ${f.servingG}g` : ''}
+                    {Math.round(f.calories)} kcal - P {f.proteinG.toFixed(0)} - C {f.carbsG.toFixed(0)} - F {f.fatG.toFixed(0)}
+                    {f.servingG ? ` - ${f.servingG}g` : ''}
                   </div>
                 </div>
-                <button className="text-xs text-muted hover:text-danger px-2" onClick={() => remove(f.id)}>✕</button>
+                <button className="text-xs text-muted hover:text-danger px-2" onClick={() => remove(f.id)}>x</button>
               </li>
             ))}
           </ul>

@@ -4,6 +4,9 @@ type FoodLog = {
   id: string;
   date: string;
   description: string;
+  source: string | null;
+  fdcId: number | null;
+  offCode: string | null;
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -32,8 +35,8 @@ export function FoodList({
           <div className="min-w-0">
             <div className="text-sm truncate">{r.description}</div>
             <div className="text-xs text-muted">
-              {Math.round(r.calories)} kcal · P {r.proteinG.toFixed(0)} · C {r.carbsG.toFixed(0)} · F {r.fatG.toFixed(0)}
-              {r.servingG ? ` · ${r.servingG}g` : ''}
+              {Math.round(r.calories)} kcal - P {r.proteinG.toFixed(0)} - C {r.carbsG.toFixed(0)} - F {r.fatG.toFixed(0)}
+              {r.servingG ? ` - ${r.servingG}g` : ''}
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -43,7 +46,7 @@ export function FoodList({
                 title="Save as favorite"
                 onClick={() => onSaveAsFavorite(r)}
               >
-                ★
+                *
               </button>
             )}
             <button
@@ -51,7 +54,7 @@ export function FoodList({
               onClick={() => onDelete(r.id)}
               title="Delete"
             >
-              ✕
+              x
             </button>
           </div>
         </li>

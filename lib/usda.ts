@@ -1,12 +1,6 @@
 // USDA FoodData Central API client.
 // Docs: https://fdc.nal.usda.gov/api-guide
 // Free API key: https://fdc.nal.usda.gov/api-key-signup.html
-//
-// Nutrient numbers we care about (Standard Reference / FNDDS):
-//   1008 = Energy (kcal)
-//   1003 = Protein (g)
-//   1005 = Carbohydrate, by difference (g)
-//   1004 = Total lipid (fat) (g)
 
 const BASE = 'https://api.nal.usda.gov/fdc/v1';
 
@@ -14,14 +8,14 @@ function apiKey() {
   return process.env.USDA_API_KEY || 'DEMO_KEY';
 }
 
-export type SearchResultItem = {
+export type UsdaItem = {
+  source: 'usda';
   fdcId: number;
   description: string;
-  brandOwner?: string;
+  brand?: string;
   dataType?: string;
   servingSize?: number;
   servingSizeUnit?: string;
-  // per 100g basis (computed below)
   caloriesPer100g: number;
   proteinPer100g: number;
   carbsPer100g: number;
@@ -52,11 +46,12 @@ function nutrient(food: ApiFood, nutrientNumber: string): number {
   return n?.value ?? 0;
 }
 
-function normalize(food: ApiFood): SearchResultItem {
+function normalize(food: ApiFood): UsdaItem {
   return {
+    source: 'usda',
     fdcId: food.fdcId,
     description: food.description,
-    brandOwner: food.brandOwner,
+    brand: food.brandOwner,
     dataType: food.dataType,
     servingSize: food.servingSize,
     servingSizeUnit: food.servingSizeUnit,
@@ -67,29 +62,31 @@ function normalize(food: ApiFood): SearchResultItem {
   };
 }
 
-export async function searchFoods(query: string, pageSize = 15): Promise<SearchResultItem[]> {
+export async function searchUsda(query: string, pageSize = 15): Promise<UsdaItem[]> {
   if (!query.trim()) return [];
   const url = `${BASE}/foods/search?api_key=${encodeURIComponent(apiKey())}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      query,
-      pageSize,
-      dataType: ['Foundation', 'SR Legacy', 'Survey (FNDDS)', 'Branded'],
-    }),
-    // Cache search results briefly to avoid bursts
-    next: { revalidate: 60 },
-  });
-  if (!res.ok) {
-    throw new Error(`USDA search failed: ${res.status} ${res.statusText}`);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        pageSize,
+        dataType: ['Foundation', 'SR Legacy', 'Survey (FNDDS)', 'Branded'],
+      }),
+      next: { revalidate: 60 },
+    });
+  } catch {
+    return [];
   }
-  const data = await res.json();
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => ({}));
   const foods: ApiFood[] = data.foods || [];
   return foods.map(normalize);
 }
 
-export async function getFood(fdcId: number): Promise<SearchResultItem | null> {
+export async function getUsdaFood(fdcId: number): Promise<UsdaItem | null> {
   const url = `${BASE}/food/${fdcId}?api_key=${encodeURIComponent(apiKey())}`;
   const res = await fetch(url, { next: { revalidate: 86400 } });
   if (!res.ok) return null;
@@ -97,8 +94,10 @@ export async function getFood(fdcId: number): Promise<SearchResultItem | null> {
   return normalize(data);
 }
 
-// Convert per-100g nutrients into the actual amount consumed.
-export function scaleNutrients(item: SearchResultItem, grams: number) {
+export function scaleNutrients(
+  item: { caloriesPer100g: number; proteinPer100g: number; carbsPer100g: number; fatPer100g: number },
+  grams: number,
+) {
   const factor = grams / 100;
   return {
     calories: Math.round(item.caloriesPer100g * factor),
@@ -107,3 +106,6 @@ export function scaleNutrients(item: SearchResultItem, grams: number) {
     fatG: +(item.fatPer100g * factor).toFixed(1),
   };
 }
+
+export const searchFoods = searchUsda;
+export type SearchResultItem = UsdaItem;

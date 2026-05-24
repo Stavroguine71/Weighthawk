@@ -17,10 +17,13 @@ export async function POST(req: Request) {
   if (!Number.isFinite(calories) || calories < 0) {
     return NextResponse.json({ error: 'calories required' }, { status: 400 });
   }
+  const source = body.source === 'usda' || body.source === 'off' ? body.source : null;
   const row = await prisma.favorite.create({
     data: {
       name,
+      source,
       fdcId: body.fdcId ? Number(body.fdcId) : null,
+      offCode: body.offCode ? String(body.offCode) : null,
       servingG: body.servingG ? Number(body.servingG) : null,
       servings: body.servings ? Number(body.servings) : 1,
       calories,

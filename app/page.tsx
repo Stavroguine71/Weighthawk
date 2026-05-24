@@ -6,6 +6,7 @@ import { FoodSearch, PendingFood } from '@/components/FoodSearch';
 import { FoodList } from '@/components/FoodList';
 import { MacroBar } from '@/components/MacroBar';
 import { WeightChart } from '@/components/WeightChart';
+import { InsightsPanel } from '@/components/InsightsPanel';
 import { todayISO } from '@/lib/date';
 
 type Settings = {
@@ -14,12 +15,17 @@ type Settings = {
   carbsGoalG: number;
   fatGoalG: number;
   goalWeightKg: number | null;
+  targetDate: string | null;
+  weeklyRateKg: number | null;
 };
 
 type FoodLog = {
   id: string;
   date: string;
   description: string;
+  source: string | null;
+  fdcId: number | null;
+  offCode: string | null;
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -33,7 +39,9 @@ type Weighing = { id: string; date: string; weightKg: number };
 type Favorite = {
   id: string;
   name: string;
+  source: string | null;
   fdcId: number | null;
+  offCode: string | null;
   servingG: number | null;
   servings: number;
   calories: number;
@@ -45,19 +53,22 @@ type Favorite = {
 export default function HomePage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [today, setToday] = useState<FoodLog[]>([]);
+  const [history, setHistory] = useState<FoodLog[]>([]);
   const [weighings, setWeighings] = useState<Weighing[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const date = todayISO();
 
   const load = useCallback(async () => {
-    const [s, f, w, fav] = await Promise.all([
+    const [s, f, fHist, w, fav] = await Promise.all([
       fetch('/api/settings').then((r) => r.json()),
       fetch(`/api/foods?date=${date}`).then((r) => r.json()),
-      fetch('/api/weighings?days=14').then((r) => r.json()),
+      fetch('/api/foods?days=35').then((r) => r.json()),
+      fetch('/api/weighings?days=90').then((r) => r.json()),
       fetch('/api/favorites').then((r) => r.json()),
     ]);
     setSettings(s);
     setToday(Array.isArray(f) ? f : []);
+    setHistory(Array.isArray(fHist) ? fHist : []);
     setWeighings(Array.isArray(w) ? w : []);
     setFavorites(Array.isArray(fav) ? fav : []);
   }, [date]);
@@ -86,6 +97,9 @@ export default function HomePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: row.description,
+        source: row.source,
+        fdcId: row.fdcId,
+        offCode: row.offCode,
         calories: row.calories,
         proteinG: row.proteinG,
         carbsG: row.carbsG,
@@ -102,7 +116,9 @@ export default function HomePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: fav.name,
+        source: fav.source,
         fdcId: fav.fdcId,
+        offCode: fav.offCode,
         servingG: fav.servingG,
         servings: 1,
         calories: fav.calories,
@@ -144,7 +160,7 @@ export default function HomePage() {
               <div className="text-xs text-muted">Calories</div>
               <div className="text-3xl font-semibold">{Math.round(totals.cal)}</div>
               <div className="text-xs text-muted">
-                of {settings?.dailyCalorieGoal ?? '—'}
+                of {settings?.dailyCalorieGoal ?? '-'}
               </div>
             </div>
             <div className="col-span-2">
@@ -170,7 +186,7 @@ export default function HomePage() {
               <div className="text-3xl font-semibold mt-2">{latestWeight.toFixed(1)} <span className="text-base text-muted">kg</span></div>
               {weightDelta !== null && (
                 <div className={`text-xs mt-1 ${weightDelta < 0 ? 'text-accent2' : weightDelta > 0 ? 'text-warn' : 'text-muted'}`}>
-                  {weightDelta > 0 ? '▲' : weightDelta < 0 ? '▼' : '•'} {Math.abs(weightDelta).toFixed(1)} kg vs previous
+                  {weightDelta > 0 ? '^' : weightDelta < 0 ? 'v' : '*'} {Math.abs(weightDelta).toFixed(1)} kg vs previous
                 </div>
               )}
               {settings?.goalWeightKg && (
@@ -185,6 +201,14 @@ export default function HomePage() {
         </div>
       </div>
 
+      {settings && (
+        <InsightsPanel
+          foods={history}
+          weighings={weighings}
+          settings={settings}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FoodSearch onAdd={addFood} />
         <QuickWeighIn onSaved={load} />
@@ -194,7 +218,7 @@ export default function HomePage() {
         <div className="card">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-medium">Quick-add favorites</h3>
-            <a href="/favorites" className="text-xs text-muted hover:text-white">Manage →</a>
+            <a href="/favorites" className="text-xs text-muted hover:text-white">Manage</a>
           </div>
           <div className="flex flex-wrap gap-2">
             {favorites.slice(0, 12).map((f) => (
@@ -205,7 +229,7 @@ export default function HomePage() {
                 title={`${Math.round(f.calories)} kcal`}
               >
                 <span>{f.name}</span>
-                <span className="text-muted">· {Math.round(f.calories)}</span>
+                <span className="text-muted">- {Math.round(f.calories)}</span>
               </button>
             ))}
           </div>

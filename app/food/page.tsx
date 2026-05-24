@@ -10,6 +10,9 @@ type FoodLog = {
   id: string;
   date: string;
   description: string;
+  source: string | null;
+  fdcId: number | null;
+  offCode: string | null;
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -64,6 +67,9 @@ export default function FoodLogPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: row.description,
+        source: row.source,
+        fdcId: row.fdcId,
+        offCode: row.offCode,
         calories: row.calories,
         proteinG: row.proteinG,
         carbsG: row.carbsG,

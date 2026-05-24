@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const days = searchParams.get('days');
 
   if (days) {
-    const n = Math.min(60, Math.max(1, Number(days)));
+    const n = Math.min(180, Math.max(1, Number(days)));
     const since = new Date();
     since.setUTCDate(since.getUTCDate() - n);
     const rows = await prisma.foodLog.findMany({
@@ -37,11 +37,14 @@ export async function POST(req: Request) {
   if (!Number.isFinite(calories) || calories < 0) {
     return NextResponse.json({ error: 'calories required' }, { status: 400 });
   }
+  const source = body.source === 'usda' || body.source === 'off' ? body.source : null;
   const row = await prisma.foodLog.create({
     data: {
       date: parseDateInput(body.date),
       description,
+      source,
       fdcId: body.fdcId ? Number(body.fdcId) : null,
+      offCode: body.offCode ? String(body.offCode) : null,
       servingG: body.servingG ? Number(body.servingG) : null,
       servings: body.servings ? Number(body.servings) : 1,
       calories,

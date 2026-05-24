@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 export type UsdaItem = {
+  source: 'usda';
   fdcId: number;
   description: string;
-  brandOwner?: string;
+  brand?: string;
   dataType?: string;
   servingSize?: number;
   servingSizeUnit?: string;
@@ -15,9 +16,26 @@ export type UsdaItem = {
   fatPer100g: number;
 };
 
+export type OffItem = {
+  source: 'off';
+  code: string;
+  description: string;
+  brand?: string;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  carbsPer100g: number;
+  fatPer100g: number;
+  servingSize?: number;
+  servingSizeUnit?: string;
+};
+
+export type FoodItem = UsdaItem | OffItem;
+
 export type PendingFood = {
   description: string;
+  source?: 'usda' | 'off';
   fdcId?: number;
+  offCode?: string;
   servingG?: number;
   servings?: number;
   calories: number;
@@ -26,17 +44,25 @@ export type PendingFood = {
   fatG: number;
 };
 
+function itemKey(r: FoodItem) {
+  return r.source === 'usda' ? `usda-${r.fdcId}` : `off-${r.code}`;
+}
+
+function sourceLabel(r: FoodItem) {
+  return r.source === 'off' ? 'UK / OFF' : 'USDA';
+}
+
 export function FoodSearch({
   onAdd,
-  placeholder = 'Search a food (e.g. banana, oatmeal)…',
+  placeholder = 'Search a food (e.g. banana, Tesco yoghurt)...',
 }: {
   onAdd: (food: PendingFood) => Promise<void> | void;
   placeholder?: string;
 }) {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<UsdaItem[]>([]);
+  const [results, setResults] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<UsdaItem | null>(null);
+  const [selected, setSelected] = useState<FoodItem | null>(null);
   const [grams, setGrams] = useState<number>(100);
   const [adding, setAdding] = useState(false);
   const [manualMode, setManualMode] = useState(false);
@@ -61,7 +87,15 @@ export function FoodSearch({
     return () => clearTimeout(debounceRef.current);
   }, [q]);
 
-  function scaled(item: UsdaItem, g: number) {
+  useEffect(() => {
+    if (selected?.servingSize && selected.servingSizeUnit === 'g') {
+      setGrams(Math.round(selected.servingSize));
+    } else {
+      setGrams(100);
+    }
+  }, [selected]);
+
+  function scaled(item: FoodItem, g: number) {
     const f = g / 100;
     return {
       calories: Math.round(item.caloriesPer100g * f),
@@ -75,20 +109,22 @@ export function FoodSearch({
     if (!selected) return;
     setAdding(true);
     const s = scaled(selected, grams);
-    await onAdd({
+    const payload: PendingFood = {
       description: selected.description,
-      fdcId: selected.fdcId,
+      source: selected.source,
       servingG: grams,
       servings: 1,
       ...s,
-    });
+    };
+    if (selected.source === 'usda') payload.fdcId = selected.fdcId;
+    if (selected.source === 'off') payload.offCode = selected.code;
+    await onAdd(payload);
     setAdding(false);
     setSelected(null);
     setQ('');
     setResults([]);
   }
 
-  // Manual entry state
   const [manual, setManual] = useState<PendingFood>({
     description: '',
     calories: 0,
@@ -128,18 +164,23 @@ export function FoodSearch({
               setSelected(null);
             }}
           />
-          {loading && <p className="text-xs text-muted mt-2">Searching USDA…</p>}
+          {loading && <p className="text-xs text-muted mt-2">Searching Open Food Facts + USDA...</p>}
           {!loading && results.length > 0 && !selected && (
             <ul className="mt-2 max-h-64 overflow-auto divide-y divide-white/5 rounded-lg ring-1 ring-white/5">
               {results.map((r) => (
                 <li
-                  key={r.fdcId}
+                  key={itemKey(r)}
                   className="px-3 py-2 hover:bg-panel2/60 cursor-pointer"
                   onClick={() => setSelected(r)}
                 >
-                  <div className="text-sm">{r.description}</div>
-                  <div className="text-xs text-muted flex gap-2">
-                    {r.brandOwner && <span>{r.brandOwner}</span>}
+                  <div className="text-sm flex items-center gap-2">
+                    <span>{r.description}</span>
+                    <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ring-1 ${r.source === 'off' ? 'ring-accent2/40 text-accent2' : 'ring-accent/40 text-accent'}`}>
+                      {sourceLabel(r)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted flex gap-2 flex-wrap">
+                    {r.brand && <span>{r.brand}</span>}
                     <span className="text-accent">{Math.round(r.caloriesPer100g)} kcal/100g</span>
                     <span>P {r.proteinPer100g.toFixed(1)}</span>
                     <span>C {r.carbsPer100g.toFixed(1)}</span>
@@ -151,8 +192,13 @@ export function FoodSearch({
           )}
           {selected && (
             <div className="mt-3 bg-panel2 rounded-lg p-3 ring-1 ring-white/10">
-              <div className="text-sm font-medium">{selected.description}</div>
-              <div className="text-xs text-muted mb-2">{selected.brandOwner || selected.dataType}</div>
+              <div className="text-sm font-medium flex items-center gap-2">
+                <span>{selected.description}</span>
+                <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ring-1 ${selected.source === 'off' ? 'ring-accent2/40 text-accent2' : 'ring-accent/40 text-accent'}`}>
+                  {sourceLabel(selected)}
+                </span>
+              </div>
+              <div className="text-xs text-muted mb-2">{selected.brand || (selected.source === 'usda' ? selected.dataType : '')}</div>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <label className="label">Grams consumed</label>
@@ -165,7 +211,7 @@ export function FoodSearch({
                   />
                 </div>
                 <button className="btn-primary" disabled={!grams || adding} onClick={addSelected}>
-                  {adding ? 'Adding…' : 'Add'}
+                  {adding ? 'Adding...' : 'Add'}
                 </button>
                 <button className="btn-ghost" onClick={() => setSelected(null)}>
                   Cancel
@@ -174,7 +220,7 @@ export function FoodSearch({
               <div className="text-xs text-muted mt-2">
                 {(() => {
                   const s = scaled(selected, grams);
-                  return `≈ ${s.calories} kcal • P ${s.proteinG} • C ${s.carbsG} • F ${s.fatG}`;
+                  return `~ ${s.calories} kcal - P ${s.proteinG} - C ${s.carbsG} - F ${s.fatG}`;
                 })()}
               </div>
             </div>
@@ -233,7 +279,7 @@ export function FoodSearch({
               disabled={!manual.description.trim() || adding}
               onClick={addManual}
             >
-              {adding ? 'Adding…' : 'Add to log'}
+              {adding ? 'Adding...' : 'Add to log'}
             </button>
           </div>
         </div>
